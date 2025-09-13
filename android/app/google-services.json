@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1033537597142",
+    "project_id": "tamillearningapp",
+    "storage_bucket": "tamillearningapp.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1033537597142:android:d86cfb1d390a62f1e9e377",
+        "android_client_info": {
+          "package_name": "com.example.tamil_speech_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyARIIF6jDwtLa9Gn1Sh5LpusnNWCl7a_dw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
