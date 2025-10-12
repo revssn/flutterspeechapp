@@ -113,21 +113,39 @@ class SpeechProvider extends ChangeNotifier {
     }
   }
 
-  void _animateVisemes() {
-    for (final viseme in _visemeData) {
-      final delayMs = (viseme.audioOffset / 10000).round();
-      Future.delayed(Duration(milliseconds: delayMs), () {
-        _currentVisemeId = viseme.visemeId;
-        notifyListeners();
-      });
-    }
+  // void _animateVisemes() {
+  //   for (final viseme in _visemeData) {
+  //     final delayMs = (viseme.audioOffset / 10000).round();
+  //     Future.delayed(Duration(milliseconds: delayMs), () {
+  //       _currentVisemeId = viseme.visemeId;
+  //       notifyListeners();
+  //     });
+  //   }
     
-    // Reset to neutral position after animation
-    Future.delayed(const Duration(milliseconds: 3000), () {
-      _currentVisemeId = 0;
+  //   // Reset to neutral position after animation
+  //   Future.delayed(const Duration(milliseconds: 3000), () {
+  //     _currentVisemeId = 0;
+  //     notifyListeners();
+  //   });
+  // }
+  void _animateVisemes() {
+  // CHANGE: Just multiply the existing delay to slow it down
+  double speedMultiplier = 3.0;  // 2.0 = twice as slow, 3.0 = three times slower
+  
+  for (final viseme in _visemeData) {
+    final delayMs = ((viseme.audioOffset / 10000) * speedMultiplier).round();
+    Future.delayed(Duration(milliseconds: delayMs), () {
+      _currentVisemeId = viseme.visemeId;
       notifyListeners();
     });
   }
+  
+  // Reset to neutral position after animation
+  Future.delayed(const Duration(milliseconds: 5000), () {  // Increased from 3000
+    _currentVisemeId = 0;
+    notifyListeners();
+  });
+}
 
   void _generateDummyVisemeData() {
     _visemeData = [
