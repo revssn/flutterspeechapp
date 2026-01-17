@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:go_router/go_router.dart';
 import '../providers/auth_provider.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({Key? key}) : super(key: key);
+  const LoginScreen({super.key});
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -26,13 +25,14 @@ class _LoginScreenState extends State<LoginScreen> {
     if (_formKey.currentState!.validate()) {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       
-      final success = await authProvider.signIn(
+      final success = await authProvider.login(
         _emailController.text.trim(),
         _passwordController.text,
       );
       
       if (success && mounted) {
-        context.go('/home');
+        // Use regular navigation instead of context.go()
+        Navigator.pushReplacementNamed(context, '/home');
       } else if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -201,7 +201,14 @@ class _LoginScreenState extends State<LoginScreen> {
                                 ),
                               ),
                               child: authProvider.isLoading
-                                  ? const CircularProgressIndicator(color: Colors.white)
+                                  ? const SizedBox(
+                                      height: 20,
+                                      width: 20,
+                                      child: CircularProgressIndicator(
+                                        color: Colors.white,
+                                        strokeWidth: 2,
+                                      ),
+                                    )
                                   : const Text(
                                       'Login',
                                       style: TextStyle(
@@ -231,7 +238,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                           const SizedBox(width: 5),
                           GestureDetector(
-                            onTap: () => context.go('/signup'),
+                            onTap: () => Navigator.pushReplacementNamed(context, '/signup'),
                             child: const Text(
                               'Sign up here',
                               style: TextStyle(

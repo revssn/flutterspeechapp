@@ -1,46 +1,80 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 
-class AuthProvider extends ChangeNotifier {
+class AuthProvider with ChangeNotifier {
+  String? _token;
+  bool _isAuthenticated = false;
   bool _isLoading = false;
   String? _errorMessage;
-  bool _isAuthenticated = false;
-  String _userName = 'User';
 
+  String? get token => _token;
+  bool get isAuthenticated => _isAuthenticated;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
-  bool get isAuthenticated => _isAuthenticated;
-  String get userName => _userName;
 
+  // Mock Login - Always succeeds for now
+  Future<bool> login(String email, String password) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    // Simulate network delay
+    await Future.delayed(const Duration(seconds: 1));
+
+    // Mock authentication - always succeeds
+    if (email.isNotEmpty && password.isNotEmpty) {
+      _token = 'mock_token_${DateTime.now().millisecondsSinceEpoch}';
+      _isAuthenticated = true;
+      _isLoading = false;
+      notifyListeners();
+      return true;
+    }
+
+    _errorMessage = 'Please enter valid credentials';
+    _isLoading = false;
+    notifyListeners();
+    return false;
+  }
+
+  // Mock SignIn - Alias for login (for compatibility)
   Future<bool> signIn(String email, String password) async {
-    _setLoading(true);
-    await Future.delayed(Duration(milliseconds: 500)); // Simulate API call
-    
-    // Extract username from email
-    _userName = email.split('@')[0];
-    _isAuthenticated = true;
-    _setLoading(false);
-    return true;
+    return await login(email, password);
   }
 
-  Future<bool> signUp(String email, String password) async {
-    _setLoading(true);
-    await Future.delayed(Duration(milliseconds: 500)); // Simulate API call
-    
-    // Extract username from email
-    _userName = email.split('@')[0];
-    _isAuthenticated = true;
-    _setLoading(false);
-    return true;
+  // Mock Signup - Always succeeds for now
+  Future<bool> signup(String email, String password) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    // Simulate network delay
+    await Future.delayed(const Duration(seconds: 1));
+
+    // Mock signup - always succeeds
+    if (email.isNotEmpty && password.isNotEmpty) {
+      _token = 'mock_token_${DateTime.now().millisecondsSinceEpoch}';
+      _isAuthenticated = true;
+      _isLoading = false;
+      notifyListeners();
+      return true;
+    }
+
+    _errorMessage = 'Please enter valid information';
+    _isLoading = false;
+    notifyListeners();
+    return false;
   }
 
-  Future<void> signOut() async {
+  // Logout method
+  void logout() {
+    _token = null;
     _isAuthenticated = false;
-    _userName = 'User';
+    _errorMessage = null;
     notifyListeners();
   }
 
-  void _setLoading(bool loading) {
-    _isLoading = loading;
+  // Clear error message
+  void clearError() {
+    _errorMessage = null;
     notifyListeners();
   }
 }

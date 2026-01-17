@@ -77,10 +77,12 @@ enum ContentType {
   paragraph,
 }
 
+// ============= ALL YOUR CONTENT IN ONE PLACE =============
+
 class LearningData {
   static List<LearningModule> getAllModules() {
     return [
-      // ============= MODULE 1: GREETINGS =============
+      // MODULE 1: GREETINGS
       LearningModule(
         id: 'greetings',
         title: 'Greetings & Basics',
@@ -228,7 +230,7 @@ class LearningData {
         ],
       ),
       
-      // ============= MODULE 2: DAILY CONVERSATION =============
+      // MODULE 2: DAILY CONVERSATION
       LearningModule(
         id: 'daily',
         title: 'Daily Conversation',
@@ -293,7 +295,7 @@ class LearningData {
         ],
       ),
       
-      // ============= MODULE 3: FAMILY =============
+      // MODULE 3: FAMILY
       LearningModule(
         id: 'family',
         title: 'Family & Friends',
@@ -365,7 +367,7 @@ class LearningData {
         ],
       ),
       
-      // ============= MODULE 4: SEASONS & WEATHER =============
+      // MODULE 4: SEASONS & WEATHER
       LearningModule(
         id: 'seasons',
         title: 'Seasons & Weather',
@@ -430,7 +432,7 @@ class LearningData {
         ],
       ),
       
-      // ============= MODULE 5: FOOD =============
+      // MODULE 5: FOOD
       LearningModule(
         id: 'food',
         title: 'Food & Dining',

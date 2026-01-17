@@ -4,14 +4,12 @@ import 'package:record/record.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:io';
-
 import 'package:path_provider/path_provider.dart';
 
 class SpeechProvider extends ChangeNotifier {
   final AudioPlayer _audioPlayer = AudioPlayer();
   final Record _audioRecorder = Record();
   
-  // Server configuration - change this to your local server
   static const String baseUrl = 'http://10.0.2.2:8000';
   static const String dummyToken = '3d9e7a1f078fb84ff6468ec229c9060759915696f7963108eb124ccc34273d4e';
   
@@ -37,45 +35,66 @@ class SpeechProvider extends ChangeNotifier {
 
   Future<void> generateVisemeData(String text) async {
     try {
+      debugPrint('🎭 Generating viseme data for: $text');
+      
       final response = await http.post(
         Uri.parse('$baseUrl/viseme?text=${Uri.encodeComponent(text)}'),
-        headers: {'Content-Type': 'application/json'},
-      );
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $dummyToken',
+        },
+      ).timeout(const Duration(seconds: 5));
 
       if (response.statusCode == 200) {
-        final List<dynamic> data = json.decode(response.body);
-        _visemeData = data.map((item) => VisemeData.fromJson(item)).toList();
-        debugPrint('Generated ${_visemeData.length} visemes');
-        notifyListeners();
+        final dynamic data = json.decode(response.body);
+        
+        List<dynamic> visemeList;
+        if (data is List) {
+          visemeList = data;
+        } else if (data is Map && data['visemes'] != null) {
+          visemeList = data['visemes'];
+        } else {
+          throw Exception('Invalid viseme data format');
+        }
+        
+        _visemeData = visemeList.map((item) => VisemeData.fromJson(item)).toList();
+        debugPrint('✅ Loaded ${_visemeData.length} visemes from server');
       } else {
-        throw Exception('Failed to generate viseme data');
+        debugPrint('⚠️ Server error: ${response.statusCode}');
+        _generateDummyVisemeData();
       }
     } catch (e) {
-      debugPrint('Error generating viseme data: $e');
-      // Fallback to dummy data
+      debugPrint('❌ Error generating viseme data: $e');
       _generateDummyVisemeData();
     }
   }
 
   Future<void> speakText(String text) async {
-    try {
-      _isPlaying = true;
-      notifyListeners();
+    if (_isPlaying) {
+      debugPrint('⏸️ Already playing');
+      return;
+    }
+    
+    _isPlaying = true;
+    notifyListeners();
 
-      // Generate viseme data
+    try {
+      debugPrint('🔊 Speaking: $text');
+      
       await generateVisemeData(text);
 
-      // Get audio from server
       final response = await http.post(
         Uri.parse('$baseUrl/tts?text=${Uri.encodeComponent(text)}'),
-        headers: {'Content-Type': 'application/json'},
-      );
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $dummyToken',
+        },
+      ).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         final audioResponse = response.body;
-        debugPrint('Audio response received: ${audioResponse.length} characters');
+        debugPrint('📥 Audio received: ${audioResponse.length} chars');
         
-        // Remove the data:audio/mp3;base64, prefix
         String base64Audio = audioResponse;
         if (audioResponse.startsWith('"data:audio/mp3;base64,')) {
           base64Audio = audioResponse.substring('"data:audio/mp3;base64,'.length);
@@ -85,27 +104,21 @@ class SpeechProvider extends ChangeNotifier {
         }
         
         try {
-          // Decode base64 to bytes
           final audioBytes = base64Decode(base64Audio);
-          debugPrint('Decoded audio bytes: ${audioBytes.length}');
+          debugPrint('🎵 Playing audio: ${audioBytes.length} bytes');
           
-          // Play using BytesSource
           await _audioPlayer.play(BytesSource(audioBytes));
-          debugPrint('Audio playback started');
-          
-          // Animate visemes
           _animateVisemes();
         } catch (e) {
-          debugPrint('Error decoding/playing audio: $e');
-          // Still animate visemes even if audio fails
+          debugPrint('⚠️ Audio error: $e, animating anyway');
           _animateVisemes();
         }
       } else {
-        throw Exception('Failed to generate speech');
+        debugPrint('⚠️ TTS failed: ${response.statusCode}');
+        _animateVisemes();
       }
     } catch (e) {
-      debugPrint('Error in speech synthesis: $e');
-      // Still animate visemes even if TTS fails
+      debugPrint('❌ Speech error: $e');
       _animateVisemes();
     } finally {
       _isPlaying = false;
@@ -113,62 +126,59 @@ class SpeechProvider extends ChangeNotifier {
     }
   }
 
-  // void _animateVisemes() {
-  //   for (final viseme in _visemeData) {
-  //     final delayMs = (viseme.audioOffset / 10000).round();
-  //     Future.delayed(Duration(milliseconds: delayMs), () {
-  //       _currentVisemeId = viseme.visemeId;
-  //       notifyListeners();
-  //     });
-  //   }
-    
-  //   // Reset to neutral position after animation
-  //   Future.delayed(const Duration(milliseconds: 3000), () {
-  //     _currentVisemeId = 0;
-  //     notifyListeners();
-  //   });
-  // }
   void _animateVisemes() {
-  // CHANGE: Just multiply the existing delay to slow it down
-  double speedMultiplier = 3.0;  // 2.0 = twice as slow, 3.0 = three times slower
-  
-  for (final viseme in _visemeData) {
-    final delayMs = ((viseme.audioOffset / 10000) * speedMultiplier).round();
-    Future.delayed(Duration(milliseconds: delayMs), () {
-      _currentVisemeId = viseme.visemeId;
+    debugPrint('🎬 Starting animation with ${_visemeData.length} visemes');
+    
+    if (_visemeData.isEmpty) {
+      _generateDummyVisemeData();
+    }
+
+    _currentVisemeId = 0;
+    notifyListeners();
+
+    int delayBetweenVisemes = 250;
+    
+    for (int i = 0; i < _visemeData.length; i++) {
+      Future.delayed(Duration(milliseconds: delayBetweenVisemes * i), () {
+        if (_visemeData.isNotEmpty && i < _visemeData.length) {
+          _currentVisemeId = _visemeData[i].visemeId;
+          debugPrint('👄 Viseme: $_currentVisemeId');
+          notifyListeners();
+        }
+      });
+    }
+    
+    int totalDuration = delayBetweenVisemes * _visemeData.length;
+    Future.delayed(Duration(milliseconds: totalDuration + 300), () {
+      _currentVisemeId = 0;
+      debugPrint('😐 Reset to neutral');
       notifyListeners();
     });
   }
-  
-  // Reset to neutral position after animation
-  Future.delayed(const Duration(milliseconds: 5000), () {  // Increased from 3000
-    _currentVisemeId = 0;
-    notifyListeners();
-  });
-}
 
   void _generateDummyVisemeData() {
+    debugPrint('🎭 Using dummy viseme data');
     _visemeData = [
       VisemeData(audioOffset: 0, visemeId: 0),
-      VisemeData(audioOffset: 500000, visemeId: 2),
-      VisemeData(audioOffset: 1000000, visemeId: 4),
-      VisemeData(audioOffset: 1500000, visemeId: 6),
-      VisemeData(audioOffset: 2000000, visemeId: 0),
+      VisemeData(audioOffset: 1, visemeId: 1),
+      VisemeData(audioOffset: 2, visemeId: 6),
+      VisemeData(audioOffset: 3, visemeId: 4),
+      VisemeData(audioOffset: 4, visemeId: 2),
+      VisemeData(audioOffset: 5, visemeId: 6),
+      VisemeData(audioOffset: 6, visemeId: 1),
+      VisemeData(audioOffset: 7, visemeId: 0),
     ];
-    debugPrint('Using dummy viseme data');
   }
 
   Future<void> startRecording() async {
     try {
-      // Check permissions first
       if (!await _audioRecorder.hasPermission()) {
-        debugPrint('Microphone permission denied');
+        debugPrint('❌ No mic permission');
         return;
       }
 
-      // Check if already recording
       if (await _audioRecorder.isRecording()) {
-        debugPrint('Already recording');
+        debugPrint('⚠️ Already recording');
         return;
       }
 
@@ -177,16 +187,16 @@ class SpeechProvider extends ChangeNotifier {
       
       await _audioRecorder.start(
         path: filePath,
-        encoder: AudioEncoder.wav, // Use WAV instead of AAC for better compatibility
+        encoder: AudioEncoder.wav,
         bitRate: 16000,
-        
+        samplingRate: 16000,
       );
       
       _isRecording = true;
       notifyListeners();
-      debugPrint('Recording started: $filePath');
+      debugPrint('🎤 Recording started');
     } catch (e) {
-      debugPrint('Error starting recording: $e');
+      debugPrint('❌ Recording error: $e');
       _isRecording = false;
       notifyListeners();
     }
@@ -195,13 +205,12 @@ class SpeechProvider extends ChangeNotifier {
   Future<void> stopRecording() async {
     try {
       if (!_isRecording) {
-        debugPrint('Not currently recording');
         return;
       }
 
       if (await _audioRecorder.isRecording()) {
         final String? filePath = await _audioRecorder.stop();
-        debugPrint('Recording stopped: $filePath');
+        debugPrint('⏹️ Recording stopped');
         
         _isRecording = false;
         notifyListeners();
@@ -209,11 +218,13 @@ class SpeechProvider extends ChangeNotifier {
         if (filePath != null && File(filePath).existsSync()) {
           await _transcribeAudio(filePath);
         } else {
-          debugPrint('Recording file not found');
+          debugPrint('❌ No recording file');
+          _transcriptionResult = 'Recording failed';
+          notifyListeners();
         }
       }
     } catch (e) {
-      debugPrint('Error stopping recording: $e');
+      debugPrint('❌ Stop error: $e');
       _isRecording = false;
       notifyListeners();
     }
@@ -221,35 +232,38 @@ class SpeechProvider extends ChangeNotifier {
 
   Future<void> _transcribeAudio(String filePath) async {
     try {
+      debugPrint('📝 Transcribing...');
+      
       final File audioFile = File(filePath);
+      
+      if (!await audioFile.exists()) {
+        _transcriptionResult = 'Recording failed';
+        notifyListeners();
+        return;
+      }
+
       final request = http.MultipartRequest(
         'POST',
         Uri.parse('$baseUrl/transcribe'),
       );
       
-      // Add authorization header with dummy token
       request.headers['Authorization'] = 'Bearer $dummyToken';
-      
       request.files.add(
         await http.MultipartFile.fromPath('file', audioFile.path),
       );
       request.fields['language'] = 'tamil';
       
-      final response = await request.send();
+      final response = await request.send().timeout(const Duration(seconds: 30));
       final responseBody = await response.stream.bytesToString();
-      
-      debugPrint('Transcription response: $responseBody');
       
       if (response.statusCode == 200) {
         final Map<String, dynamic> data = json.decode(responseBody);
-        debugPrint('Parsed data: $data');
         
         if (data['status'] == 'success') {
           _transcriptionResult = data['transcript'] ?? 'No transcription';
-          debugPrint('Setting transcription result: $_transcriptionResult');
+          debugPrint('✅ Transcription: $_transcriptionResult');
         } else {
           _transcriptionResult = 'Transcription failed';
-          debugPrint('Transcription failed: ${data['transcript']}');
         }
       } else {
         _transcriptionResult = 'Error: ${response.statusCode}';
@@ -257,7 +271,7 @@ class SpeechProvider extends ChangeNotifier {
       
       notifyListeners();
     } catch (e) {
-      debugPrint('Error transcribing audio: $e');
+      debugPrint('❌ Transcription error: $e');
       _transcriptionResult = 'Transcription error';
       notifyListeners();
     }
@@ -311,8 +325,8 @@ class VisemeData {
 
   factory VisemeData.fromJson(Map<String, dynamic> json) {
     return VisemeData(
-      audioOffset: json['privAudioOffset'] ?? 0,
-      visemeId: json['privVisemeId'] ?? 0,
+      audioOffset: json['privAudioOffset'] ?? json['audioOffset'] ?? 0,
+      visemeId: json['privVisemeId'] ?? json['visemeId'] ?? 0,
     );
   }
 }
